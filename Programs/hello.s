@@ -2,26 +2,25 @@ PORTB = $8000
 DDRB = $8002
 PIACTRL = $800C 		; Control register
  .ds8 $1000
- .org $7FFC			; On reset/boot
- jmp $9000			; Jump to our start address
- .byt 0				; Padding the ROM
- .org $7000			; Will be F000
+ .org $7FFC				; On reset/boot
+ jmp $9000				; Jump to our start address
+ .byt 0					; Padding the ROM to full size
+ .org $7000				; Will be F000
  .fcc "Hello, World!"
- .org $1000			; Our address range starts at $1000 in the ROM			
+ .org $1000				; Our address range starts at $1000 in the ROM			
 BOOT:
- LDA #%00111111			; DDR Flags for output
+ LDA #%11111111			; DDR Flags for output
  STA DDRB
- LDA #%10101110			; Pulse HI on output from portB
+ LDA #%10101111			; Pulse HI on output from portB
  STA PIACTRL
  LDA #%00110000			; Data packet, set 4-bit mode on LCD
  STA PORTB
  JSR LCDINIT			; We may need to re-init the LCD
-				; So make it a subroutine
- LDX #0				; make sure X is clear
- JMP LOOP 			; off we go!!!!
+ LDX #0					; make sure X is clear
+ JMP LOOP 				; off we go!!!!
 
 
-LCDINIT:
+LCDINIT:				; Subroutine in case we need to reinit
  LDA #%00110000			; Keep on 4-bit mode
  STA PORTB
  LDA #%01000000			; Set screen size/cursor
@@ -60,12 +59,12 @@ SENDA:
 
 LOOP:
  LDA $F000,X		; Load the next character
- BEQ KILL		; If it's $00, end
+ BEQ KILL		 ; If it's $00, end the program
  JSR SENDA
  INX
  JMP LOOP
 
  
-KILL:
+KILL: 				; End execution
  BRK
 
