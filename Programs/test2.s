@@ -1,11 +1,31 @@
-; This program is aimed to troubleshoot some issues on my LCD output
-; Tie data out from the 65c22 to some LEDs to make sure it's working
+; This program is aimed to test my PIO stuff
+; Port B on the 6522 is set to the LCD display
+; Port A will be just some LEDs.
 
-.org $1000          ; First 1k is taken up by other junk
+.define PORTA $8001
+.define PORTB $8002
+
+.org $7FFC		; Boot vector:
+ JMP $9000
+
+.org $1000
 BOOT:
- STI                ; Disable interrupts
+ STI                	; Disable interrupts
  LDY #0
  LDX #0
- LDA #$FF           ; DDR2 direction: all outs
- STA $8002          
- LDA #%10111111     ; Set PIA to Pulse Output on 
+ LDA #$FF           	; DDR2 direction: all outs
+ STA $8002
+ sta PORTA              ; Also save it in port a          
+ 
+
+RUNLOOP:
+
+
+
+WAITSEC:
+  STX $F0
+  STY $F1
+  STA $F2
+  LDA #$FF
+  
+ 

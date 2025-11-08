@@ -28,6 +28,12 @@ ROMLEN_32K = 0x8000
 ROMLEN_16K = 0x4000
 ROMLEN_8K = 0x2000
 
+def print_percent(val, size):
+    percent = str(int((val / size)* 100))
+    bspaces = "\b" * (len(percent) + 1)
+    
+    print(bspaces+ str(percent) + "%", end="" )
+
 class AddressRegister:
     # Class to hold our shift register stuff
     def __init__(self, oe, clk, dat, reset) -> None:
@@ -41,18 +47,14 @@ class AddressRegister:
 
 
     def clear(self):
-        self.dat.off()
-        self.reset.on()
-        sleep_ms(1)
-        self.clk.on()
-        sleep_ms(1)
-        self.clk.off()
-        sleep_ms(1)
-        self.reset.off()
-        self.clk.on()
-        sleep_ms(1)
-        self.reset.on()
-        self.oe.off()
+        self.dat.value(0)
+        self.reset.value(1)
+        self.clk.value(1)
+        self.clk.value(0)
+        self.reset.value(0)
+        self.clk.value(1)
+        self.reset.value(1)
+        self.oe.value(0)
         self.value = 0
 
     def set_value(self, value):
@@ -62,19 +64,13 @@ class AddressRegister:
             if bflip >> i & value:
                 self.dat.on() # I think this is truthy-falsey? so anything > 0 counts as on?
             else:
-                self.dat.off()
-            sleep_ms(1)
-            self.clk.off()
-            sleep_ms(1)
+                self.dat.value(0)
+            self.clk.value(0)
         
             self.clk.on()
         # Pulse the clock one more time to put the shift register data in the output register, since we tied the pins together
-        self.clk.off()
-        sleep_ms(1)
-
-        self.clk.on()
-    
-        sleep_ms(1)
+        self.clk.value(0)
+        self.clk.value(1)
         self.value = value
 
 
@@ -108,13 +104,12 @@ class DataBus:
         if mode == "input":
             self.mode = 0
             for p in self.pins:
-                p.mode = Pin.IN
-                p.pull = Pin.PULL_DOWN
+                p.init(p.IN, p.PULL_DOWN)
         elif mode == "output":
             self.mode = 1
             for p in self.pins:
-                p.mode = Pin.OUT
-                p.off()
+                p.init(p.OUT)
+                p.value(0)
 
 
 class EEPROM:
@@ -167,7 +162,8 @@ class TaskManager:
 
     def load_file(self): 
         # Set up the data stuff we need
-        
+        ready_led.value(0)
+        busy_led.value(1)
         with open(self.romfile, "rb") as indata:
             data = indata.read()
         if len(data) > self.rom.size:
@@ -180,28 +176,61 @@ class TaskManager:
                 newdat.append(b)
             data = newdat
         self.rom.file_data = data
-    
+        busy_led.value(0)
+        act_led.value(1)
+        sleep_ms(200)
+        act_led.value(0)
+        sleep_ms(200)
+        ready_led.value(1)
     
     def write_file(self):
-        print("Writing Data...")
-        busy_led.on()
-        ready_led.off()
-        act_led.on()
+        print("Writing Data...  0%", end="")
+        busy_led.value(1)
+        ready_led.value(0)
+        act_led.value(1)
         self.data_bus.set_mode("output")
+        
+        perc = self.rom.size/100
+        next_print_dat = perc * 1
+
+        
         for i in range(self.rom.size):
             self.address_bus.set_value(i)
             self.data_bus.write_value(self.rom.file_data[i])
             self.rom.write_pulse()
-            act_led.off()
-            if i % 100:
-                print(".", end="")
+            act_led.value(0)
+            if i > next_print_dat:
+                print_percent(i, self.rom.size)
+                next_print_dat += perc
             self.rom.end_write_pulse()
-            act_led.on()
-        print("Done! Verifying!")
+            act_led.value(1)
+        # shits broke
+        print("done i guess") 
+        return   
+        print("\nDone! Verifying...  0%", end="")
+        next_print_dat = perc * 1
         self.data_bus.set_mode("input")
-        
         for i in range(self.rom.size):
-            pass
+            if i > next_print_dat:
+                print_percent(i, self.rom.size)
+                next_print_dat += perc
+            self.address_bus.set_value(i)
+            self.rom.send_read_pulse()
+            sleep_ms(1)
+            self.read_data.append(self.data_bus.read_value())
+            self.rom.end_read_pulse()
+        
+        err_list = []
+        for i in range(self.rom.size):
+            if self.read_data[i] != self.rom.file_data[i]:
+                err_list.append(i)
+        if len(err_list) == 0:
+            print("Write verified! ")
+            ready_led.value(1)
+            act_led.value(0)
+            busy_led.value(0)
+        else:
+            print("Verification did not succeed!!!\n" + str(len(err_list)) + "bytes failed to write correctly.")
 
     def loop(self):
         # For now, just do one file, hardcoded.
@@ -237,5 +266,9 @@ button = Pin(BUTT, Pin.IN, Pin.PULL_DOWN) # use the internal pulldown because i 
 
 tm = TaskManager(AddressRegister(SR_OE, SR_CLK, SR_DAT, SR_RESET), DataBus(DATAPINS), EEPROM(PIN_WE, PIN_OE, PIN_CE))
 tm.load_file()
+print("Ready!")
 
+while button.value() == 0:
+    sleep_ms(10)
 
+tm.write_file()
