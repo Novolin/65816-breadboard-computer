@@ -36,23 +36,23 @@ class AddressRegister:
         self.dat = Pin(dat, Pin.OUT)
         self.reset = Pin(reset, Pin.OUT)
         self.value = -1 # Bus is not set
-        self.oe.value(0)
+        self.oe.off()
         self.clear()
 
 
     def clear(self):
-        self.dat.value(0)
-        self.reset.value(1)
+        self.dat.off()
+        self.reset.on()
         sleep_ms(1)
-        self.clk.value(1)
+        self.clk.on()
         sleep_ms(1)
-        self.clk.value(0)
+        self.clk.off()
         sleep_ms(1)
-        self.reset.value(0)
-        self.clk.value(1)
+        self.reset.off()
+        self.clk.on()
         sleep_ms(1)
-        self.reset.value(1)
-        self.oe.value(0)
+        self.reset.on()
+        self.oe.off()
         self.value = 0
 
     def set_value(self, value):
@@ -60,19 +60,19 @@ class AddressRegister:
         bflip = 1 << 16
         for i in range(16):
             if bflip >> i & value:
-                self.dat.value(1) # I think this is truthy-falsey? so anything > 0 counts as on?
+                self.dat.on() # I think this is truthy-falsey? so anything > 0 counts as on?
             else:
-                self.dat.value(0)
+                self.dat.off()
             sleep_ms(1)
-            self.clk.value(0)
+            self.clk.off()
             sleep_ms(1)
         
-            self.clk.value(1)
+            self.clk.on()
         # Pulse the clock one more time to put the shift register data in the output register, since we tied the pins together
-        self.clk.value(0)
+        self.clk.off()
         sleep_ms(1)
 
-        self.clk.value(1)
+        self.clk.on()
     
         sleep_ms(1)
         self.value = value
@@ -92,9 +92,9 @@ class DataBus:
         self.value = value
         for i in range(8):
             if (value >> i) & 1:
-                self.pins[i].value(1)
+                self.pins[i].on()
             else:
-                self.pins[i].value(0)
+                self.pins[i].off()
 
     def read_value(self)-> int:
         if self.mode:
@@ -114,7 +114,7 @@ class DataBus:
             self.mode = 1
             for p in self.pins:
                 p.mode = Pin.OUT
-                p.value(0)
+                p.off()
 
 
 class EEPROM:
@@ -131,25 +131,25 @@ class EEPROM:
 
     def write_pulse(self):
         # sends the signals to the PROM to latch data from the data bus
-        self.oe.value(1) # ensure output enable is low
-        self.ce.value(0) # ensure chip enable is low
+        self.oe.on() # ensure output enable is low
+        self.ce.off() # ensure chip enable is low
         sleep_ms(1) # i think timing requires both to be on for a hair, so just be safe.
-        self.rw.value(0)
+        self.rw.off()
     
     def end_write_pulse(self):
-        self.ce.value(1)
-        self.rw.value(1) # doing both just to be safe.
+        self.ce.on()
+        self.rw.on() # doing both just to be safe.
     
     def send_read_pulse(self):
-        self.rw.value(1)
-        self.oe.value(0)
+        self.rw.on()
+        self.oe.off()
         sleep_ms(1)
-        self.ce.value(0)
+        self.ce.off()
     
     def end_read_pulse(self):
-        self.rw.value(1)
-        self.ce.value(1)
-        self.oe.value(1)
+        self.rw.on()
+        self.ce.on()
+        self.oe.on()
 
 class TaskManager:
     # Class you can call to do loops and shit while things load.
@@ -184,19 +184,19 @@ class TaskManager:
     
     def write_file(self):
         print("Writing Data...")
-        busy_led.value(1)
-        ready_led.value(0)
-        act_led.value(1)
+        busy_led.on()
+        ready_led.off()
+        act_led.on()
         self.data_bus.set_mode("output")
         for i in range(self.rom.size):
             self.address_bus.set_value(i)
             self.data_bus.write_value(self.rom.file_data[i])
             self.rom.write_pulse()
-            act_led.value(0)
+            act_led.off()
             if i % 100:
                 print(".", end="")
             self.rom.end_write_pulse()
-            act_led.value(1)
+            act_led.on()
         print("Done! Verifying!")
         self.data_bus.set_mode("input")
         
@@ -205,20 +205,20 @@ class TaskManager:
 
     def loop(self):
         # For now, just do one file, hardcoded.
-        ready_led.value(1)
-        busy_led.value(0)
-        act_led.value(0)
+        ready_led.on()
+        busy_led.off()
+        act_led.off()
 
 
 
         while True:
             if self.error: # Hard loop, requiring a reset. 
-                busy_led.value(1)
-                ready_led.value(0)
-                act_led.value(0)
+                busy_led.on()
+                ready_led.off()
+                act_led.off()
                 sleep_ms(500)
-                busy_led.value(0)
-                act_led.value(1)
+                busy_led.off()
+                act_led.on()
                 sleep_ms(500)
                 continue
             
@@ -228,11 +228,11 @@ class TaskManager:
 
 
 busy_led = Pin(LED_R, Pin.OUT) # Red LED signalling you shouldn't fuck with the ROM
-busy_led.value(1)
+busy_led.on()
 act_led = Pin(LED_Y, Pin.OUT) # led to mark when we're doin shit
-act_led.value(1)
+act_led.on()
 ready_led = Pin(LED_G, Pin.OUT) # led to signal we are ready to go :)
-ready_led.value(0)
+ready_led.off()
 button = Pin(BUTT, Pin.IN, Pin.PULL_DOWN) # use the internal pulldown because i dont want to solder another fuckin resistor
 
 tm = TaskManager(AddressRegister(SR_OE, SR_CLK, SR_DAT, SR_RESET), DataBus(DATAPINS), EEPROM(PIN_WE, PIN_OE, PIN_CE))

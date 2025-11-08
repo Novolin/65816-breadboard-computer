@@ -7,3 +7,7 @@ My Personal 65C816 breadboard build, including schematics, etc.
 /KiCad contains my schematics/raw kicad files, if you want to laugh at my design.
 
 /Programs contains the programs I've written, probably mostly raw assembly, idk if i will implement c
+
+## Known Issues:
+everything is broken atm :) I think it's hardware fuckups on my end, but I have to get my ROM working properly before i can test.
+idk if my programmer is broken on a hardware or software level, so that's my current troubleshooting situation.

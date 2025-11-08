@@ -4,7 +4,7 @@
 # Semi-rewritten
 
 from machine import Pin #type:ignore
-from time import sleep_ms, sleep_us #type:ignore
+from time import ticks_ms, ticks_add, ticks_diff, sleep_us #type:ignore
 
 # Pin defs should stay the same since everything is soldered.
 ROM_OE = 3
@@ -40,17 +40,22 @@ class LightsAndButt:
         self.ready.off()
         self.act.off()
 
-    def wait_for_button(self):
+    def wait_for_button(self) -> bool:
         # Waits infinitely for someone to hit the button.
         self.set_ready()
         while self.button():
-            sleep_us(10)
+            sleep_us(100)
+        return True
     
     def set_ready(self):
         self.ready.on()
         self.busy.off()
         self.act.off()
 
+    def set_busy(self):
+        self.ready.off()
+        self.busy.on()
+    
 class ShiftReg:
     # Shift register functions in one nice little home.
     def __init__(self, dat = SR_DAT, oe = SR_OE, reset = SR_RESET, clk = SR_CLK):
@@ -74,22 +79,22 @@ class ShiftReg:
             self.clk.on()
         # Pulse the clock one more time to put the shift register data in the output register, since we tied the pins together
         self.clk.off()
-        sleep_us(50)
+        sleep_us(150)
         self.clk.on()
-        sleep_us(50)
+        sleep_us(150)
         self.out_val = new_value
     
     def clear(self):
         self.dat.off()
         self.reset.off()
-        sleep_us(50)
+        sleep_us(150)
         self.clk.on()
-        sleep_us(50)
+        sleep_us(150)
         self.clk.off()
-        sleep_us(50)
+        sleep_us(150)
         self.reset.on()
         self.clk.on()
-        sleep_us(50)
+        sleep_us(150)
         self.oe.off()
         self.value = 0
 
@@ -98,6 +103,11 @@ class Programmer:
     def __init__(self, filetarget:str = "program.bin", targetsize = ROMLEN_32K):
         self.filetarget = filetarget # What file to write to the ROM
         self.targetsize = targetsize # How big is the EEPROM we're going for
+        self.prog_data = bytearray()
+        # Blinken Lights
+        self.lights = LightsAndButt()
+        self.lights.set_busy()
+
         # Init our control pins as generic inputs (high-Z)
         self.rom_ce = Pin(ROM_CE, Pin.OUT) 
         self.rom_ce.on()
@@ -110,7 +120,7 @@ class Programmer:
         self.dat_pins = []
         for i in DATAPINS:
             self.dat_pins.append(Pin(i, self.data_dir))
-    
+        
 
     def set_data_dir(self, direction:Pin.IN|Pin.OUT):
         # Set the direction of the data bus
@@ -120,6 +130,7 @@ class Programmer:
         self.data_dir = direction
 
     def read_value(self, address:int) -> int:
+        self.lights.set_busy()
         # Reads the value of the rom at the given address
         if address > self.targetsize:
             print("Error! read address out of bounds!")
@@ -135,9 +146,15 @@ class Programmer:
             val |= self.dat_pins[i]() << i # mess with shifting to make sure it's correct.
         self.rom_oe.on()
         self.rom_ce.on()
+        self.lights.set_ready()
         return val
-
+    
     def write_val(self, address, value):
+        # First do some goofs w/ lights becasue obv. that's the most importanantent
+        if address & 0b10000000: # This should make the activity light blink semi-regularly, as if things are happening :)
+            self.lights.act.on()
+        else:
+            self.lights.act.off() 
         # Set our buses before fuckin with the rom:
         self.sr.set_value(address)
         for i in range(8):
@@ -146,16 +163,44 @@ class Programmer:
             else:
                 self.dat_pins[i].off()
         self.rom_ce.off()
-        sleep_us(50)
+        sleep_us(150)
         self.rom_we.off()
-        sleep_us(50)
+        sleep_us(150)
         self.rom_we.on()
         self.rom_ce.on()
 
 
+    def write_file(self):
+        # Loads program.bin and then writes the file to ROM.
+        # Load the program as part of this function, so you don't have to soft reset every fucking time you change it
+
+        self.lights.set_busy()
+        self.lights.act.on()
+        print("Loading from file:" , self.filetarget)
+        with open(self.filetarget, "rb") as filedata:
+            self.prog_data = filedata.read()
+        if len(filedata) > self.targetsize:
+            print("File too large! Contains ", len(filedata), " Bytes, expected at most ", self.targetsize, "! Truncating to target ROM size!" )
+        elif len(filedata) < self.targetsize:
+            print("File too small! Padding ROM with $00 ", self.targetsize - len(filedata), " times! Interrupt vectors might break!")
+
+        self.lights.act.off() # turn off act light while we prepare our buses, becvause it makes flashy :) :) :) 
+        print("Writing data:")
+        self.set_data_dir(Pin.OUT)
+        progress = 0
+        for i in range(self.targetsize):
+            self.write_val(i, filedata[i])
+            # Give a printed progress status:
+            if self.targetsize // i != progress:
+                progress = (self.targetsize // 10) // i # Should be in 10% blocks:
+                print("\r[" + ("=" * progress) + (" " * 10 - progress) + "]", end="")
+        print(" Done!")
+
+        #TODO: once writing works, do a verify.
 
 
 
+''' OLD:
 class TaskManager:
     # Class you can call to do loops and shit while things load.
     def __init__(self, addresses:AddressRegister, data_bus:DataBus, rom:EEPROM, file = "program.bin"):
@@ -228,19 +273,4 @@ class TaskManager:
                 continue
             
 
-
-
-
-
-busy_led = Pin(LED_R, Pin.OUT) # Red LED signalling you shouldn't fuck with the ROM
-busy_led.on()
-act_led = Pin(LED_Y, Pin.OUT) # led to mark when we're doin shit
-act_led.on()
-ready_led = Pin(LED_G, Pin.OUT) # led to signal we are ready to go :)
-ready_led.off()
-button = Pin(BUTT, Pin.IN, Pin.PULL_DOWN) # use the internal pulldown because i dont want to solder another fuckin resistor
-
-tm = TaskManager(AddressRegister(SR_OE, SR_CLK, SR_DAT, SR_RESET), DataBus(DATAPINS), EEPROM(PIN_WE, PIN_OE, PIN_CE))
-tm.load_file()
-
-
+'''
