@@ -7,8 +7,8 @@ SETREGB = $E004 	; wtf is the settings thing called?
 
 
 ; ROM - related addresses
-RESVECT = $7FFC		; Reset/Boot vector (FFFC - 8000)
-IRQVECT = $7FFE
+RESVECT = $7FFD		; Reset/Boot vector (little-endian bs here)
+IRQVECT = $7FFE     
 NMIVECT = $7FFA
 
 TEXTLOC = $4000 	; If 4k isn't enough for my program, I think I'm cooked lol
@@ -18,3 +18,6 @@ TEXTSTORE = $1000	; Where the string will live in RAM
 TEXTLEN = $0FFF		; How long is it
 CURSPOS = $0FFE		; How many characters deep are we in displaying
 
+; LCD Commands:
+LCDBOOT = #%00101100
+LCDBLINKOFF = #%00001100
