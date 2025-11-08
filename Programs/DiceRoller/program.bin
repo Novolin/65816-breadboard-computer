@@ -1,0 +1,27 @@
+include defines.s
+
+; Dice Rolling Dealio: pres butan 2 get dice roll :)
+
+
+RNGLOC = $FF 		; Our RNG thing will live at address $FF
+
+
+.org RESVECT
+.byt $80
+.org 0
+
+BOOT:
+  LDA #1		; Seed the RNG with something
+  STA RNGLOC
+
+
+RNGGO:			; Generates a new random number
+  PHA 			; Store the value of A in case we need it again
+  LDA $FF		; Load our last generated # into A
+  ROL $FF		; Rotate left with carry
+  EOR $FF		; Exclusive OR with accumulator
+  STA $FF		; Keep that number.
+  PLA			; Get back what we stacked
+  RTS			; we good
+  
+

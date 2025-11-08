@@ -1,0 +1,36 @@
+include defines.s
+
+.org $7FFD 		; Set our reset vector to the start of the ROM
+.byt $80		; I think it's just a little endian address????
+
+.org 0			; Back to the start!
+
+
+BOOT: 
+ lda #0
+INITIO:			; Initialize our I/O inteface
+ lda #$FF
+ sta DDRB
+ sta DDRA		; include PORTA as an output for now, just in case? we can use it for blinkenlights
+
+
+;TODO: make the i/o flags do what they need
+
+
+DrawText:
+ LDX CURSPOS
+ LDA TEXTSTORE,X
+ STA $10		; $10 is our character storage.
+
+SendChar:
+ LDA $10
+ AND #$F0
+ ORA #1
+ STA PORTB
+ DEC
+ STA PORTB
+ LDA $10
+ ROL
+ ROL
+ ROL
+ ROL
