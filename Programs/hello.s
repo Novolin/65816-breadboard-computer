@@ -20,8 +20,6 @@ STRLOC = $C000			; Where the string is located
 BOOT:
  LDA #%11111111			; DDR Flags for output
  STA DDRB
- LDA #%10101111			; Pulse HI on output from portB
- STA PIACTRL
 
 
 LCDINIT:			; Subroutine in case we need to reinit
