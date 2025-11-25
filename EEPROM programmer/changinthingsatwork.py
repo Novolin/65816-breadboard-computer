@@ -178,22 +178,25 @@ class Programmer:
         self.lights.act.on()
         print("Loading from file:" , self.filetarget)
         with open(self.filetarget, "rb") as filedata:
-            self.prog_data = filedata.read()
-        if len(filedata) > self.targetsize:
-            print("File too large! Contains ", len(filedata), " Bytes, expected at most ", self.targetsize, "! Truncating to target ROM size!" )
-        elif len(filedata) < self.targetsize:
-            print("File too small! Padding ROM with $00 ", self.targetsize - len(filedata), " times! Interrupt vectors might break!")
+            for b in filedata.read():
+                self.prog_data.append(b)
+        if len(self.prog_data) > self.targetsize:
+            print("File too large! Contains ", len(self.prog_data), " Bytes, expected at most ", self.targetsize, "! Truncating to target ROM size!" )
+        elif len(self.prog_data) < self.targetsize:
+            print("File too small! Padding ROM with $00 ", self.targetsize - len(self.prog_data), " times! Interrupt vectors might break!")
+            while len(self.prog_data) < self.targetsize:
+                self.prog_data.append(0)
 
         self.lights.act.off() # turn off act light while we prepare our buses, becvause it makes flashy :) :) :) 
         print("Writing data:")
         self.set_data_dir(Pin.OUT)
         progress = 0
         for i in range(self.targetsize):
-            self.write_val(i, filedata[i])
+            self.write_val(i, self.prog_data[i])
             # Give a printed progress status:
             if self.targetsize // i != progress:
                 progress = (self.targetsize // 10) // i # Should be in 10% blocks:
-                print("\r[" + ("=" * progress) + (" " * 10 - progress) + "]", end="")
+                print("\r[" + ("=" * progress) + (" " * (10 - progress)) + "]", end="")
         print(" Done!")
 
         #TODO: once writing works, do a verify.
