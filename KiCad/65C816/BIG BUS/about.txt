@@ -1,0 +1,6 @@
+# About this folder: 
+
+This folder contains the version designed to interface with as many address lanes as possible
+
+This is the final, "ideal" version of the system, with Serial, graphical and text i/o, as well as a built in keypad dealio thing!!!
+

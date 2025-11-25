@@ -1,0 +1,7 @@
+GAL16V8		; GAL Type
+Test		; idfk
+
+NC  BUS A15 A14 A13 NC NC GND ; Pin defs
+BRQ VCE NC  NC  NC  NC NC VCC
+
+BRQ = A*

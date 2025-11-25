@@ -1,0 +1,13 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "a711f8dd-39ea-4a5f-8168-3e2c253f91f7")
+	(paper "A")
+	(title_block
+		(title "Big Boy")
+		(date "2025-11-17")
+		(rev "1")
+	)
+	(lib_symbols)
+)

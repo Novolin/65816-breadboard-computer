@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Homebrew Symbols")(type "KiCad")(uri "${KIPRJMOD}/BIG BUS/Board Connectors.kicad_sym")(options "")(descr ""))
+)

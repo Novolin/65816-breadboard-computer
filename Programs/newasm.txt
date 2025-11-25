@@ -1,0 +1,96 @@
+; Assorted assembly bs
+; in no real order because w/e that's future me's problem
+PORTB = $E000
+DDRB = $E002
+STRINGLOC = $D000
+
+; Defining some LCD-related values:
+LCDINIT = $28	; Boot-time stuff
+LCDON = $0C	; Turn on LCD, turn off cursor/blink
+LCDMODE = $06	; Set the LCD mode to not scroll and stuff.
+
+
+
+LCDBOOT:
+ LDA #$21	; Boot settings for the LCD, send once to switch to 4-bit
+ STA PORTB
+ DEC PORTB
+ LDA #LCDINIT
+ JSR LCDCMD
+ LDA #LCDON
+ JSR LCDCMD
+ LDA LCDMODE
+ JSR LCDCMD
+ JMP WRITESTRING
+
+LCDCMD:			; Enter Sub w/ LCD command in A.
+ STA $FF   		; use $FF as our buffer for outgoing LCD data
+ AND #$F0  		; Trim to 4 MSB
+ ORA #1    		; commands only use the Enable bit.
+ STA PORTB
+ DEC PORTB 		; Drop E to low, this cmd takes 1 more cycles than we need at minimum
+ LDA $FF
+ ROL       		; Shift so we send the lower nibble
+ ROL
+ ROL
+ ROL
+ AND #$F0
+ ORA #1
+ STA PORTB
+ DEC PORTB
+ JSR CHECKBUSY 		; Replace with RTS once we have timing sorted?
+ RTS
+
+CHECKBUSY:
+ LDA #$0F		; Change DDR to Read the data pins
+ STA DDRB
+RUNCHECK:
+ LDA #3			; RS and E high
+ STA PORTB
+ ROL 			; Delay for pulse width?
+ LDA PORTB		; Read the data
+ DEC PORTB
+ PHA			; Push A to the stack 
+ LDA #3
+ STA PORTB
+ DEC PORTB		; Discard the rest, we don't care.
+ PLA 			; Pull our read from the stack
+ AND #%10000000		; Isolate the busy flag
+ BNE RUNCHECK		; If busy, try again
+ LDA #$FF
+ STA DDRB		; Return DDR to output
+ RTS
+
+SENDCHAR: 		; Send a character, assuming it's in the accumulator
+ PHA 			; Save for later. Would the stack work better?
+ AND #$F0 		; Top nibble only
+ ORA #%00000101		; RS, E set, RW unset.
+ STA PORTB		; Send Nibble 1
+ DEC PORTB
+ PLA			; Load and rotate Left
+ ROL
+ ROL
+ ROL
+ ROL
+ AND #$F0
+ ORA #%00000101		; Rinse, Repeat
+ STA PORTB
+ DEC PORTB
+ JSR CHECKBUSY		; Replace with busy flag sub of choice
+ RTS
+
+WRITESTRING:		; Write the string at STRINGLOC to the LCD
+ LDX #0
+NEXTCHAR:
+ LDA STRINGLOC,X	; Put the ASCII value in our accum.
+ INX
+ BEQ STRINGDONE		; If we get EoF, end the sub.
+ JSR SENDCHAR		; Fire send subroutine
+ JMP NEXTCHAR		; Keep loopin'
+STRINGDONE:
+ NOP 			; do nothing until interrupt (which never comes :()
+ 
+ 
+ .org $7ffd
+ .byt $80
+ .word $00
