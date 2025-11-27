@@ -1,0 +1,49 @@
+Name     CPUBUS ;
+Partno   CMB00002 ;
+Date     11 / 26 / 25 ;
+Revision 00 ;
+Designer Novolin ;
+Company  None ;
+Assembly idfk ;
+Location U??? ;
+Device   g16v8 ;
+
+/**************************************/
+/* This one includes expansion slots! */
+/**************************************/
+
+// Inputs:
+
+Pin 2 = A15;
+Pin 3 = A16;
+Pin 4 = A17;
+Pin 5 = A18;
+Pin 6 = A19;
+Pin 7 = A20;
+Pin 8 = A21;
+Pin 9 = A22;
+
+// Outputs:
+
+Pin 12 = !LORAM;
+Pin 13 = !ROM;
+Pin 14 = !INOUT; // Both I/O devices
+Pin 15 = !GPU;  // GPU including DMA
+// Expansion buses:
+Pin 16 = !EX1; 
+Pin 17 = !EX2; 
+Pin 18 = !EX3;
+Pin 19 = !EX4;
+
+// idk if I even need the extra input lines, at least not yet.
+
+FIELD address = [A15..22] ;
+
+LORAM = address:[0..7FFF] ;
+ROM = address:[8000:FFFF] ;
+INPUT = address:[10000..1FFFF] ; 
+GPU = address:[20000..2FFFF];
+EX1 = address:[30000..3FFFF] ; 
+EX2 = address:[40000..4FFFF] ; 
+EX3 = address:[50000..5FFFF] ;
+EX4 = address:[60000..6FFFF] ;

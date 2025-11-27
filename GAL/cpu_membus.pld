@@ -1,0 +1,38 @@
+Name     CPUBUS ;
+Partno   CMB00001 ;
+Date     11 / 26 / 25 ;
+Revision 00 ;
+Designer Novolin ;
+Company  None ;
+Assembly idfk ;
+Location Board 3 ;
+Device   g16v8 ;
+
+// CPU memory bus! This is a test for the C816 in compat mode.
+
+/****************/
+/* PINPUTS      */
+/* (pin inputs) */
+/****************/
+
+Pin 2 = A12 ;
+Pin 3 = A13 ;
+Pin 4 = A14 ;
+Pin 5 = A15 ;
+
+/***************/
+/*  POUTPUTS   */
+/* :( sad pins */
+/***************/
+
+Pin 19 = !ROM ; 
+Pin 18 = !RAM ;
+Pin 12 = !PIO ;
+
+// CUPL recognizes the size of a bus based on the number of a var, that's cool!
+FIELD ADDRESS = [A12..15] ;
+
+// I think ROM should be ok? That's how OR works, yeah?
+RAM = ADDRESS:'H'[0..7FFF] ; 
+PIO = ADDRESS:'H'[E000..EFFF];
+ROM = ADDRESS:'H'[8000..DFFF] # 'H'[F000..FFFF] ;
