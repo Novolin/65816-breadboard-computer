@@ -25,8 +25,7 @@ Pin 9 = A22;
 
 // Outputs:
 
-Pin 12 = !LORAM;
-Pin 13 = !ROM;
+Pin 12 = !LOMEM
 Pin 14 = !INOUT; // Both I/O devices
 Pin 15 = !GPU;  // GPU including DMA
 // Expansion buses:
@@ -39,8 +38,7 @@ Pin 19 = !EX4;
 
 FIELD address = [A15..22] ;
 
-LORAM = address:[0..7FFF] ;
-ROM = address:[8000:FFFF] ;
+LOMEM = address:[0..FFFF] ;
 INPUT = address:[10000..1FFFF] ; 
 GPU = address:[20000..2FFFF];
 EX1 = address:[30000..3FFFF] ; 

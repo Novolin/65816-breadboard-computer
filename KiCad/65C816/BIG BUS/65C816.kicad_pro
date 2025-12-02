@@ -480,13 +480,18 @@
     },
     "net_colors": null,
     "netclass_assignments": null,
-    "netclass_patterns": []
+    "netclass_patterns": [
+      {
+        "netclass": "Default",
+        "pattern": ""
+      }
+    ]
   },
   "pcbnew": {
     "last_paths": {
       "gencad": "",
       "idf": "",
-      "netlist": "",
+      "netlist": "./",
       "plot": "",
       "pos_files": "",
       "specctra_dsn": "",
@@ -560,12 +565,54 @@
           "label": "Datasheet",
           "name": "Datasheet",
           "show": true
+        },
+        {
+          "group_by": false,
+          "label": "NOTE",
+          "name": "NOTE",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Note",
+          "name": "Note",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Device",
+          "name": "Sim.Device",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Pins",
+          "name": "Sim.Pins",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "ID",
+          "name": "ID",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Description",
+          "name": "Description",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "#",
+          "name": "${ITEM_NUMBER}",
+          "show": false
         }
       ],
       "filter_string": "",
       "group_symbols": true,
       "include_excluded_from_bom": true,
-      "name": "Default Editing",
+      "name": "",
       "sort_asc": true,
       "sort_field": "Reference"
     },
@@ -621,22 +668,6 @@
     [
       "14b42b0c-fc57-4805-82b6-c685580df8f2",
       "Root"
-    ],
-    [
-      "f47a470a-11f8-4494-8128-e1a14a61acc8",
-      "Power, Reset, Clock"
-    ],
-    [
-      "2c14c9a7-0889-4d3d-b660-238ac3b18c0a",
-      "Human Interfacing"
-    ],
-    [
-      "35d86f55-6cc3-4340-a655-100eb22c4b4d",
-      "Z80 GPU"
-    ],
-    [
-      "2c437836-73fa-4e6b-bd89-f29114f13b90",
-      "Serial Interface"
     ]
   ],
   "text_variables": {}

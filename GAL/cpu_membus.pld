@@ -6,7 +6,7 @@ Designer Novolin ;
 Company  None ;
 Assembly idfk ;
 Location Board 3 ;
-Device   g16v8 ;
+Device   g16v8b ;
 
 // CPU memory bus! This is a test for the C816 in compat mode.
 
