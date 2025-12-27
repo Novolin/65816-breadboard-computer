@@ -21,7 +21,7 @@ LCDE = 1
 lcdcheck:               ; Checks if the LCD is busy or not:
     pha
     lda #0
-    sta VIA::PORTB      ; Set port B to input 
+    sta VIA::DDRB      ; Set port B to input 
 lcdbusy:
     lda LCDRW           ; Make sure RW is set before we trigger E
     sta VIA::PORTA      ; Also clears any sent enable signals.
@@ -29,9 +29,17 @@ lcdbusy:
     lda VIA::PORTB      ; Check our flag:
     and %10000000       ; should be a 0 if not busy 
     bne lcdbusy         ; loop until we're done.
+    lda #$FF
+    sta VIA::DDRB        ; return portb to output mode
     PLA                 
     RTS                 ; continue execution
 
 
-lcdcmd:                 ; Send a command to the LCD
+lcdcmd:                 ; Send a command in the accumulator to the LCD
     jsr lcdcheck        ; Make sure it's free.
+    pha
+    lda #0
+    sta VIA::PORTA
+    NOT DONE SO THIS IS GONNA BREAK IF YOU TRY TO compile
+
+    yeah i dont give a fuck im about to fall asleep on my feet rn
