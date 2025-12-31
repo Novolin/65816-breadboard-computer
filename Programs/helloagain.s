@@ -1,6 +1,12 @@
 ; Once again for the bazillionth time
 ; actually going to try doing things "right" with the lcd
 
+; LCD Timing Notes:
+; @ 1MHz, it's 500 ns between clock cycles, so we're comfortably in the happy zone for the LCD
+; Higher speeds may make things act up, you may need to add delays to the command/data subs
+; also adjust the wait time for the boot stuff.
+
+
 ; defs:
 .struct VIA         ; Defining our 65C51 VIA
     .org $E000      ; Lives at $E000
@@ -12,21 +18,19 @@
 ;LCD command stuff:
 LCDRS = %00000010
 LCDRW = %00000100
-
-
-initval = $30
-dispon = $0F            ; screen on, cursor on, blink on.
+LCDINIT = %00
+LCDON = $0F            ; screen on, cursor on, blink on.
 
 
 .segment "VECTORS"
-.addr LCDINIT           ; dont forget to force little endial lmfau
-.addr LCDINIT
-.addr LCDINIT
+.addr BOOT           ; dont forget to force little endial lmfau
+.addr BOOT
+.addr BOOT
 
 .data
 stringloc: .asciiz "Hello, Worls!"
 
-.code                   ; Code block. reset vector should be to LCDINIT!!
+.code                   ; Code block. reset vector should be to BOOT!!
 
 lcdcheck:               ; Checks if the LCD is busy or not:
     pha
@@ -67,16 +71,25 @@ lcdchar:                ; send the character data in A to the LCD
     inc VIA::PORTA      ; Send the enable bit
     RTS                 ; I think that's all?
 
+lcdstartup:             ; Separate from commands, as busy flag does not work until initialized.
+    lda #0
+    sta VIA::PORTA      ; Clear our VIA's A output, in case it's got old data
+    lda #LCDINIT        ; $38 should give us 2 lines, 8 bit data and 5x8 font
+    inc VIA::PORTA      ; E is the lowest bit, so this is making it high
+    sta VIA::PORTB      ; Put the data packet on teh bus
+    dec VIA::PORTA      ; Send pulse.
 
 
-LCDINIT:                ; boot our LCD screen, get it ready to go
-    lda #$30            ; I think $30 is the correct value for our initialization. It may be like $38 but i dont remember
-    jsr lcdcmd
-    lda #$30
-    jsr lcdcmd          ; datasheet says to do it multiple times, so i'm doin that.
-    lda #$30
-    jsr lcdcmd
-    lda #$0F            ; cursor/blink/etc.
+
+BOOT:                   ; boot our LCD screen, get it ready to go
+    LDA #$FF            ; Start by initializing our VIA
+    STA VIA::DDRA
+    STA VIA::DDRB
+    
+    jsr lcdstartup      ; Send the startup/init packet multiple times
+    jsr lcdstartup      ; why? idk, datasheet says so.
+    jsr lcdstartup
+    lda #LCDON          ; set the cursor/blink/display on flags
     jsr lcdcmd
 
 
