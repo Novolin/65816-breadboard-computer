@@ -6,6 +6,7 @@
 ; Higher speeds may make things act up, you may need to add delays to the command/data subs
 ; also adjust the wait time for the boot stuff.
 
+.p816
 
 ; defs:
 .struct VIA         ; Defining our 65C51 VIA
@@ -18,8 +19,9 @@
 ;LCD command stuff:
 LCDRS = %00000010
 LCDRW = %00000100
-LCDINIT = %00
+LCDINIT = %00111000
 LCDON = $0F            ; screen on, cursor on, blink on.
+LCDCLR = 1		; probably doesn't need its own def but w/e
 
 
 .segment "VECTORS"
@@ -27,10 +29,23 @@ LCDON = $0F            ; screen on, cursor on, blink on.
 .addr BOOT
 .addr BOOT
 
-.data
+.data			; The typo stays.
 stringloc: .asciiz "Hello, Worls!"
 
 .code                   ; Code block. reset vector should be to BOOT!!
+
+delay:			; Delay for however many loops are in the accumulator, ~1ms/loop @ 1MHz
+    phx			; Save our x register for later
+    tax			; Move the # of loops to X
+    lda #$FF		; 255 cycles for now
+deloop:			; the actual loop
+    dec a		; Decrement A until it hits 0
+    bne deloop
+    lda #$FF		; Reset the A counter here
+    dex			; Decrement X until *it* hits 0
+    bne deloop
+    plx			; Take our x back
+    rts    
 
 lcdcheck:               ; Checks if the LCD is busy or not:
     pha
@@ -47,8 +62,8 @@ lcdbusy:
     bne lcdbusy         ; loop until we're done.
     lda #$FF
     sta VIA::DDRB       ; return portb to output mode
-    PLA                 
-    RTS                 ; continue execution
+    pla                 
+    rts                 ; continue execution
 
 
 lcdcmd:                 ; Send a command in the accumulator to the LCD
@@ -59,7 +74,7 @@ lcdcmd:                 ; Send a command in the accumulator to the LCD
     pla                 ; get back our command byte
     sta VIA::PORTB      ; put it on the data lines
     inc VIA::PORTA      ; fire the enable bit
-    RTS                 ; we can go back to whatever other thing now
+    rts                 ; we can go back to whatever other thing now
 
 lcdchar:                ; send the character data in A to the LCD
     jsr lcdcheck        ; ensure LCD is free
@@ -69,7 +84,7 @@ lcdchar:                ; send the character data in A to the LCD
     pla
     sta VIA::PORTB
     inc VIA::PORTA      ; Send the enable bit
-    RTS                 ; I think that's all?
+    rts                 ; I think that's all?
 
 lcdstartup:             ; Separate from commands, as busy flag does not work until initialized.
     lda #0
@@ -81,21 +96,28 @@ lcdstartup:             ; Separate from commands, as busy flag does not work unt
 
 
 
+
+
 BOOT:                   ; boot our LCD screen, get it ready to go
-    LDA #$FF            ; Start by initializing our VIA
-    STA VIA::DDRA
-    STA VIA::DDRB
-    
+    lda #$FF            ; Start by initializing our VIA
+    sta VIA::DDRA
+    sta VIA::DDRB
+    lda #50		
+    jsr delay		; ~50ms for the LCD to wake up
     jsr lcdstartup      ; Send the startup/init packet multiple times
+    lda #4
+    jsr delay		; I think it wants another ~4ms at this point
     jsr lcdstartup      ; why? idk, datasheet says so.
-    jsr lcdstartup
+    lda #4
+    jsr delay
+    jsr lcdstartup	; ok it should finally be awake now.
     lda #LCDON          ; set the cursor/blink/display on flags
+    jsr lcdcmd
+    lda #LCDCLR		; Send a clear command
     jsr lcdcmd
 
 
-
-
-sendstring:
+sendstring:		
     ldx #0              ; Use X as our offset
 strloop:
     lda stringloc,X     ; load our character
@@ -103,9 +125,10 @@ strloop:
     jsr lcdchar         ; write it
     inx                 ; increment our pointer
     jmp strloop         ; repeat
-
 stringdone:
-    brk                 ; kill our program, we're done for now.
+    brk 		; String stuff will need to be rewritten, but for now just kill it.
+
+
 
 
 
