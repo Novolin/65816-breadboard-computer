@@ -17,6 +17,7 @@
     DDRA .byte
 .endstruct          ; Shouldn't need more than that!
 ;LCD command stuff:
+LCDE = %1           ; Just in case I need to  do funky stuff later.
 LCDRS = %00000010
 LCDRW = %00000100
 LCDINIT = %00111000
@@ -52,11 +53,10 @@ lcdcheck:               ; Checks if the LCD is busy or not:
     lda #0
     sta VIA::DDRB       ; Set port B to input 
 lcdbusy:
-    lda LCDRW           ; Make sure RW is set before we trigger E
+    lda #LCDRW          ; Make sure RW is set before we trigger E
     sta VIA::PORTA      ; Also clears any sent enable signals.
-    nop
-    nop                 ; probably don't need these, but better safe than sorry, and i have lots of rom space
-    inc VIA::PORTA      ; Fire our enable 
+    lda #(LCDRW | LCDE) ; Instead of nops, just make the accumulator work
+    sta VIA::PORTA      ; Fire our enable 
     lda VIA::PORTB      ; Check our flag:
     and %10000000       ; should be a 0 if not busy 
     bne lcdbusy         ; loop until we're done.
