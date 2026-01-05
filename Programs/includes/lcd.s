@@ -3,25 +3,37 @@
 ; Almost all of them use the same controller.
 
 ; This may also include the graphical LCD stuff too, but that's a later problem.
+.p816
 
 .IFNDEF delay
 .include        "delay.s"
 .ENDIF
+.ifndef IOMEM
+IOMEM = $E000
+.ENDIF
 
 ; Define the VIA's ports. Make sure you use the right memory address!!
-.struct CHLCD                           ; CHaracter LCD
-.org $E000                              ; Mine lives at $E000 for now, it will change when i start using expansion buses.
-DATAPORT        .byte                   ; PORTB on the VIA, for our data output 
-CMDPORT         .byte                   ; PORTA, houses commands
-DDRB            .byte                   ; DDR for PORTB
-DDRA            .byte                   ; DDR for PORTA
-.endstruct                              ; That's all we need for now, will take more when gfx are implemented.
+.struct LCD                             ; Will handle both graphical and Text LCDs
+.org IOMEM                              ; Lives at memory address $010000, in our highmem space
+ CHRDAT          .byte                   ; PORTB on the VIA, for our character LCD data output
+ CONTROL         .byte                   ; PORTA, houses control lines for both displays
+ DDRB            .byte                   ; DDR for PORTB
+ DDRA            .byte                   ; DDR for PORTA
+ T1C             .WORD                   ; Timer 1 Counter
+ T1L             .WORD                   ; T1  Latches
+ T2C             .WORD                   ; T2 Counter
+ SR              .BYTE                   ; Shift Register Data
+ ACR             .BYTE                   ; Aux control Register
+ PCR             .BYTE                   ; Perif. Control register
+ IFR             .BYTE                   ; Interrupt Flag register
+ IER             .BYTE                   ; Interrupt enable register
+.endstruct                              ; That's all we need, since the last byte is just PORTA again.
 
+; Character LCD definitions
 ; Control values:
 LCD_E           = %00000001             ; Enable bit, alternatively just inc/dec CHLCD::CMDPORT
 LCD_CHAR        = %00000010             ; Register Select. 1 = data, 0 = Command
 LCD_RW          = %00000100             ; Read/Write. 1 = Read, 0 = Write. Mostly used in busy checking.
-
 
 ; Command packets, send without RS or RW:
 LCD_CLEAR       = 1                     ; Clear the display, move cursor to home. (1.5ms)
@@ -48,41 +60,39 @@ CURS_L3         = $14                   ; On 20x4 displays, line 3 is an extensi
 CURS_L4         = $54                   ; Same with line 4. 16x4 displays may act different? check your datasheet.
 
 
-DISP_BOOT:      ; Enable the VIA, initialize the LCD to 'default' mode.
+; GFX LCD Definitions:
+GLCD_RESET      = $10000000
+GLCD_CS         = $10111111             ; AND with whatever else, to bring CS low!
+GLCD_RS         = $00100000             ; Data/Command mode. 
+
+; I'm not going to write all of the commands because it's a goddamn book!! 
+
+LCD_BOOT:      ; Enable the VIA, initialize the LCD to 'default' mode
  PHA                                    ; Hold on to whatever's in A.
  PHY                                    ; And Y, we're going to use that for some other stuff.
  LDY            #LCD_E                  ; Specifically toggling the "E" bit.
  LDA            #$FF
- STA            CHLCD::DDRB             ; Set up our DDRs, both all outputs
- STA            CHLCD::DDRA             
+ STA            LCD::DDRB               ; Set up our DDRs, both all outputs
+ STA            LCD::DDRA             
  LDA            #0                      ; Make sure the ports are empty
- STA            CHLCD::CMDPORT
- STA            CHLCD::DATAPORT
+ STA            LCD::CONTROL
+ STA            LCD::CHRDAT
  LDA            #40                     ; 40 ms of delay, so the LCD can get up to stable voltage.
  JSR            delay                   ; Delay while the LCD wakes up
  LDA            #LCD_INIT               ; Prepare our init value
- STY            CHLCD::CMDPORT          ; Flag Enable bit
- STA            CHLCD::DATAPORT         ; Get the data packet out
- DEC            CHLCD::CMDPORT          ; Latch it.
- LDA            #1                      ; do a short delay before re-sending
- JSR            delay                   ; I think it needs the init command 3x to deal with 4-bit mode?
- STY            CHLCD::CMDPORT          ; honestly, i'm just doing it because the datasheet does
- LDA            #1                      ; re-loading the accum here so the pulse width isn't too short.
- DEC            CHLCD::CMDPORT          ; it would probably still be ok, but that's safety in case i boost past 1MHz
- JSR            delay                   ; last delay before we can be sure it stuck
- STY            CHLCD::CMDPORT          ; We need to wait after this so the pulse isn't too short.
- NOP                                    ; Probably don't even need to, but we just waited like 50ms, what's 2us?
- DEC            CHLCD::CMDPORT          ; OK, now we can actually use the busy flag!!
+ STY            LCD::CONTROL            ; Flag Enable bit
+ STA            LCD::CHRDAT             ; Get the data packet out
+ DEC            LCD::CONTROL            ; Latch it.
  JSR            LCD_WAIT                ; Loops until LCD is ready
- STY            CHLCD::CMDPORT          ; LCD_WAIT will put the command port back to 0, so we just need the "E" bit to toggle.
+ STY            LCD::CONTROL            ; LCD_WAIT will put the command port back to 0, so we just need the "E" bit to toggle.
  LDA            #LCD_ON_BLINK           ; choose your preferred power-on setting. I'm going with blinky for now
- STA            CHLCD::DATAPORT         ; Make sure it's on the bus
- DEC            CHLCD::CMDPORT          ; Latch.
+ STA            LCD::CHRDAT             ; Make sure it's on the bus
+ DEC            LCD::CONTROL            ; Latch.
  JSR            LCD_WAIT                ; Ensure it goes through.
- STY            CHLCD::CMDPORT
+ STY            LCD::CONTROL
  LDA            #LCD_CLEAR              ; Send a clear command, too.
- STA            CHLCD::DATAPORT         ; Launch it
- DEC            CHLCD::CMDPORT          ; Latch it.
+ STA            LCD::CHRDAT             ; Launch it
+ DEC            LCD::CONTROL            ; Latch it.
  PLY                                    ; Return our original Y register
  PLA                                    ; And our A register
  RTS                                    ; And go back to what we were doing before!
@@ -92,9 +102,11 @@ DISP_BOOT:      ; Enable the VIA, initialize the LCD to 'default' mode.
 
 LCD_WAIT:      ; Wait for the LCD busy flag to clear
  PHA                                    ; Keep A saved safely away
- LDA            #LCD_RW                 ; Prepare a read action
- STA            CHLCD::CMDPORT
+ LDA            LCD::CONTROL            ; Pull our current control register
+ AND            #($F0|LCD_RW)           ; Mask our control bits for the other screen
+ STA            LCD::CONTROL
  LDA            #0                      ; Set our DDR to in on the data lines.
+ YOURE HERE IN THE REWRITE
  STA            CHLCD::DDRB             
 @READBUSY
  INC            CHLCD::CMDPORT          ; Fire the Enable bit
