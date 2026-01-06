@@ -36,6 +36,7 @@ stringloc: .asciiz "Hello, Worls!"
 .code                   ; Code block. reset vector should be to BOOT!!
 
 delay:			; Delay for however many loops are in the accumulator, ~1ms/loop @ 1MHz
+    RTS         ; I'm not at 1MHz yet, so if i dont do this, loops take literal days.
     phx			; Save our x register for later
     tax			; Move the # of loops to X
     lda #$FF		; 255 cycles for now
