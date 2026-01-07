@@ -94,7 +94,7 @@ lcdstartup:             ; Separate from commands, as busy flag does not work unt
     inc VIA::PORTA      ; E is the lowest bit, so this is making it high
     sta VIA::PORTB      ; Put the data packet on teh bus
     dec VIA::PORTA      ; Send pulse.
-
+ rts
 
 
 
