@@ -90,11 +90,11 @@ lcdchar:                ; send the character data in A to the LCD
 lcdstartup:             ; Separate from commands, as busy flag does not work until initialized.
     lda #0
     sta VIA::PORTA      ; Clear our VIA's A output, in case it's got old data
-    lda #LCDINIT        ; $38 should give us 2 lines, 8 bit data and 5x8 font
+    ldx #LCDINIT        ; $38 should give us 2 lines, 8 bit data and 5x8 font
     inc VIA::PORTA      ; E is the lowest bit, so this is making it high
-    sta VIA::PORTB      ; Put the data packet on teh bus
+    stx VIA::PORTB      ; Put the data packet on teh bus
     dec VIA::PORTA      ; Send pulse.
- rts
+    rts
 
 
 
