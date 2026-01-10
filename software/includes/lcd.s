@@ -19,11 +19,11 @@
  CONTROL        .byte                   ; PORTA, houses control lines for both displays
  DDRB           .byte                   ; DDR for PORTB
  DDRA           .byte                   ; DDR for PORTA
- T1C            .WORD                   ; Timer 1 Counter
- T1L            .WORD                   ; T1  Latches
+ T1C            .WORD                   ; Timer 1 Counter, not used
+ T1L            .WORD                   ; T1  Latches, not used
  T2CL           .BYTE                   ; T2 Counter, low bytes (probably what we'll use)
  T2CH           .BYTE                   ; T2 Counter, Hi bytes (probably unused
- SR             .BYTE                   ; Shift Register Data
+ SR             .BYTE                   ; Shift Register Data (graphical LCD)
  ACR            .BYTE                   ; Aux control Register
  PCR            .BYTE                   ; Perif. Control register
  IFR            .BYTE                   ; Interrupt Flag register
@@ -121,7 +121,20 @@ LCD_SENDCHAR:  ; Send the character in "A" to the character LCD
  PLY                                    ; Take back our Y register
  RTS                                    ; And we're done.
 
-LCD_SENDCMD:    ; Send the command byte in 
+LCD_SENDCMD:    ; Send the command byte in A to the LCD
+ JSR            LCD_WAIT                ; Make sure LCD is ready first
+ PHY                                    ; Use Y to save our last setting
+ PHA                                    ; Save it for a moment
+ LDA            LCD::CONTROL            ; Get our control flags
+ TAY                                    ; Keep it in Y for later
+ ORA            #LCD_E                  ; Include the enable bit
+ STA            LCD::CONTROL            ; Send
+ PLA                                    ; Get back our packet
+ STA            LCD::CHRDAT             ; Send on the data lines
+ STY            LCD::CONTROL            ; Return our control lines to normal.
+ PHY                                    ; Get back the data and return.
+ RTS
+
 
 LCD_WAIT:      ; Wait for the LCD busy flag to clear
  PHA                                    ; Keep A saved safely away
@@ -137,7 +150,7 @@ LCD_WAIT:      ; Wait for the LCD busy flag to clear
  LDA            LCD::CHRDAT             ; Load the byte
  DEC            LCD::CONTROL            ; Release E
  AND            %10000000               ; Check if it's busy
- BNE            @READBUSY               ; If it is, try again.
+ BEQ            @READBUSY               ; If it is, try again.
  LDA            #$FF                    ; Busy flag cleared, turn the DDR back
  STA            LCD::DDRB
  LDA            #0

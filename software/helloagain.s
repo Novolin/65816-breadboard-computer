@@ -17,7 +17,7 @@
     DDRA .byte
 .endstruct          ; Shouldn't need more than that!
 ;LCD command stuff:
-LCDE = %1           ; Just in case I need to  do funky stuff later.
+LCDE = %00000001           ; Just in case I need to  do funky stuff later.
 LCDRS = %00000010
 LCDRW = %00000100
 LCDINIT = %00111000
@@ -31,23 +31,21 @@ LCDCLR = 1		; probably doesn't need its own def but w/e
 .addr BOOT
 
 .data			; The typo stays.
-stringloc: .asciiz "Hello, Worls!"
+stringloc: .asciiz "Hello, Worls!"      ;This should define it as being at 
 
 .code                   ; Code block. reset vector should be to BOOT!!
 
-delay:			; Delay for however many loops are in the accumulator, ~1ms/loop @ 1MHz
-    RTS         ; I'm not at 1MHz yet, so if i dont do this, loops take literal days.
-    phx			; Save our x register for later
-    tax			; Move the # of loops to X
-    lda #$FF		; 255 cycles for now
-deloop:			; the actual loop
-    dec a		; Decrement A until it hits 0
-    bne deloop
-    lda #$FF		; Reset the A counter here
-    dex			; Decrement X until *it* hits 0
-    bne deloop
-    plx			; Take our x back
-    rts    
+BOOT:                   ; boot our LCD screen, get it ready to go
+    lda #$FF            ; Start by initializing our VIA
+    sta VIA::DDRA
+    sta VIA::DDRB
+    jsr lcdstartup	; ok it should finally be awake now.
+    lda #LCDON          ; set the cursor/blink/display on flags
+    jsr lcdcmd
+    lda #LCDCLR		; Send a clear command
+    jsr lcdcmd
+    jmp sendstring
+
 
 lcdcheck:               ; Checks if the LCD is busy or not:
     pha
@@ -60,7 +58,8 @@ lcdbusy:
     sta VIA::PORTA      ; Fire our enable 
     lda VIA::PORTB      ; Check our flag:
     and %10000000       ; should be a 0 if not busy 
-    bne lcdbusy         ; loop until we're done.
+    beq lcdbusy         ; loop until we're done.
+    dec VIA::PORTA
     lda #$FF
     sta VIA::DDRB       ; return portb to output mode
     pla                 
@@ -99,35 +98,18 @@ lcdstartup:             ; Separate from commands, as busy flag does not work unt
 
 
 
-BOOT:                   ; boot our LCD screen, get it ready to go
-    lda #$FF            ; Start by initializing our VIA
-    sta VIA::DDRA
-    sta VIA::DDRB
-    lda #50		
-    jsr delay		; ~50ms for the LCD to wake up
-    jsr lcdstartup      ; Send the startup/init packet multiple times
-    lda #4
-    jsr delay		; I think it wants another ~4ms at this point
-    jsr lcdstartup      ; why? idk, datasheet says so.
-    lda #4
-    jsr delay
-    jsr lcdstartup	; ok it should finally be awake now.
-    lda #LCDON          ; set the cursor/blink/display on flags
-    jsr lcdcmd
-    lda #LCDCLR		; Send a clear command
-    jsr lcdcmd
 
 
 sendstring:		
-    ldx #0              ; Use X as our offset
+    ldx #0                              ; Use X as our offset
 strloop:
-    lda stringloc,X     ; load our character
-    beq stringdone      ; exit our loop if we loaded a null/terminating char
-    jsr lcdchar         ; write it
-    inx                 ; increment our pointer
-    jmp strloop         ; repeat
+    lda stringloc,X                     ; load our character
+    beq stringdone                      ; exit our loop if we loaded a null/terminating char
+    jsr lcdchar                         ; write it
+    inx                                 ; increment our pointer
+    jmp strloop                         ; repeat
 stringdone:
-    brk 		; String stuff will need to be rewritten, but for now just kill it.
+    brk                                 ; String stuff will need to be rewritten, but for now just kill it.
 
 
 
